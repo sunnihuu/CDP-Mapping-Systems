@@ -24,13 +24,6 @@ import urllib
 import html
 import sys
 
-try:
-    import markdown
-
-    _HAVE_MARKDOWN = True
-except Exception:
-    _HAVE_MARKDOWN = False
-
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -39,59 +32,41 @@ def html_escape(s: str) -> str:
 
 
 def build_index_html(root_path: str) -> str:
-    """Build the repository homepage HTML from README.md (if present)
-    and a listing of top-level items."""
-    readme_html = ""
-    readme_path = os.path.join(root_path, "README.md")
-    if os.path.isfile(readme_path):
-        try:
-            with open(readme_path, "r", encoding="utf-8") as fh:
-                md_text = fh.read()
-            if _HAVE_MARKDOWN:
-                readme_html = markdown.markdown(
-                    md_text, extensions=["fenced_code", "tables"]
-                )
-            else:
-                # fallback: show raw markdown inside a pre block
-                readme_html = f"<pre>{html_escape(md_text)}</pre>"
-        except Exception as e:
-            readme_html = f"<p>Failed to read README.md: {html_escape(str(e))}</p>"
+    """Build a minimal homepage that exposes only `Assignments/` (and
+    `docs/` if present) per the user's request.
+    """
+    items = []
+    if os.path.isdir(os.path.join(root_path, "Assignments")):
+        items.append(("Assignments", "/Assignments/"))
+    if os.path.isdir(os.path.join(root_path, "docs")):
+        items.append(("docs", "/docs/"))
 
-    items = sorted(os.listdir(root_path), key=str.lower)
-    list_items = []
-    for name in items:
-        # skip the server script itself from the listing for clarity
-        if name == os.path.basename(__file__):
-            continue
-        href = urllib.parse.quote(name)
-        list_items.append(f'<li><a href="{href}">{html_escape(name)}</a></li>')
-
+    list_items = [
+        f'<li><a href="{html_escape(href)}">{html_escape(name)}</a></li>'
+        for name, href in items
+    ]
     list_html = "\n".join(list_items)
 
     html_page = f"""<!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{html_escape(os.path.basename(root_path))} - Repository Website</title>
-  <style>
-    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; margin: 2rem; }}
-    pre {{ background:#f8f8f8; padding:1rem; border-radius:6px; overflow:auto }}
-    code {{ background:#f0f0f0; padding:0.1rem 0.3rem; border-radius:3px }}
-    nav {{ margin-top:1rem }}
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{html_escape(os.path.basename(root_path))} - Assignments</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; margin: 2rem; }}
+        nav {{ margin-top:1rem }}
+    </style>
 </head>
 <body>
-  <h1>{html_escape(os.path.basename(root_path))}</h1>
-  {readme_html}
-  <hr>
-  <h2>Top-level files and folders</h2>
-  <nav>
-    <ul>
-      {list_html}
-    </ul>
-  </nav>
-  <p>Served from <code>{html_escape(root_path)}</code></p>
+    <h1>{html_escape(os.path.basename(root_path))}</h1>
+    <p>This site exposes the course Assignments. Click below to browse.</p>
+    <nav>
+        <ul>
+            {list_html}
+        </ul>
+    </nav>
+    <p>Served from <code>{html_escape(root_path)}</code></p>
 </body>
 </html>"""
     return html_page
@@ -144,12 +119,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # Quick info about optional markdown rendering
-    if not _HAVE_MARKDOWN:
-        print(
-            "Note: Python package 'markdown' not found — README.md will be shown as raw markdown.\n"
-            "Install it with: pip install markdown"
-        )
+    # Note: README rendering was removed from the homepage per user's request.
 
     try:
         run_server(bind=args.bind, port=args.port)
